@@ -21,6 +21,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Random;
+import java.util.Stack;
 import java.util.concurrent.TimeUnit;
 
 import tyrantgit.explosionfield.ExplosionField;
@@ -31,16 +32,18 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     private GameButton[] buttons;
     private int[] buttonGraphicLocation;
     private int[] buttonGraphics;
+
     private GameButton selectedButton1;
     private GameButton selectedButton2;
+
     private TextView textName;
 
     private boolean isBusy = false;
 
-    private int pairedNum = 0;
     private final Handler handler = new Handler();
     private long time;
     private CountDownTimer timer;
+    private float score = 0;
 
     private String name;
     private int age;
@@ -49,8 +52,15 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     private ExplosionField mExplosionField;
 
     private SensorManager sensorManager;
-    private Sensor gyroscopeSensor;
-    private SensorEventListener gyroscopeEventListener;
+    private Sensor rotationSensor;
+    private SensorEventListener rotationEventListener;
+    private boolean isSnapped = false;
+    private float[] initialPosition = new float[3];
+    private float scoreCoefficient;
+
+
+    private Stack<GameButton> matchedPairs = new Stack<>();
+    private int pairedNum = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +76,18 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         time = (long) extrasBundle.getInt("time");
         name = extrasBundle.getString("name");
         age = extrasBundle.getInt("age");
+
+        switch ((int) time) {
+            case 30:
+                scoreCoefficient = 0.25f;
+                break;
+            case 45:
+                scoreCoefficient = 0.5f;
+                break;
+            case 60:
+                scoreCoefficient = 0.75f;
+                break;
+        }
 
 
         textName = (TextView) findViewById(R.id.name_container_text);
@@ -98,52 +120,73 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
 
         mExplosionField = ExplosionField.attach2Window(this);
 
-        sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-        gyroscopeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        if(gyroscopeSensor == null) {
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
+        if (rotationSensor == null) {
             Toast.makeText(this, getString(R.string.no_gyro_text), Toast.LENGTH_LONG).show();
         }
 
-        gyroscopeEventListener = new SensorEventListener() {
+        rotationEventListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent sensorEvent) {
-                if(IsTilted(sensorEvent)) {
-                    // Flip last pair
+                if (isSnapped) {
+                    if (IsTilted(sensorEvent) && pairedNum > 0) {
+                        punishPlayer();
+                    }
+                } else {
+                    for (int i = 0; i < 3; i++)
+                        initialPosition[i] = sensorEvent.values[i];
+                    isSnapped = true;
                 }
             }
 
             @Override
-            public void onAccuracyChanged(Sensor sensor, int i) {
-
-            }
+            public void onAccuracyChanged(Sensor sensor, int i) { }
         };
-        sensorManager.registerListener(gyroscopeEventListener, gyroscopeSensor, SensorManager.SENSOR_DELAY_FASTEST);
+
+        sensorManager.registerListener(rotationEventListener, rotationSensor, SensorManager.SENSOR_DELAY_FASTEST);
 
         //start timer
         countDownStart();
 
     }
 
-    private boolean IsTilted(SensorEvent sensorEvent) {
-        for(int i = 0; i < sensorEvent.values.length; i++)
-        if(sensorEvent.values[i] > 0.5f || sensorEvent.values[i] < -0.5f) {
-            String str = "Moved in " + i + " axis\nValue : " + sensorEvent.values[i];
-            Toast.makeText(this, str, Toast.LENGTH_SHORT).show();
-            return true;
+    private void punishPlayer() {
+        GameButton gb;
+        isBusy = true;
+        for (int i = 0; i < 2; i++) {
+            gb = matchedPairs.pop();
+            gb.setMatched(false);
+            gb.setEnabled(true);
+            gb.flip();
         }
+        pairedNum--;
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                isBusy = false;
+            }
+        }, 500);
+    }
+
+    private boolean IsTilted(SensorEvent sensorEvent) {
+        for (int i = 0; i < initialPosition.length; i++)
+            if (sensorEvent.values[i] > initialPosition[i] + 0.5 || sensorEvent.values[i] < initialPosition[i] - 0.5) {
+                return true;
+            }
         return false;
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        sensorManager.registerListener(gyroscopeEventListener, gyroscopeSensor, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(rotationEventListener, rotationSensor, SensorManager.SENSOR_DELAY_FASTEST);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        sensorManager.unregisterListener(gyroscopeEventListener);
+        sensorManager.unregisterListener(rotationEventListener);
     }
 
     private void countDownStart() {
@@ -155,6 +198,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
                 if (TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished) == 10)
                     timer.setTextColor(Color.RED);
                 timer.setText(" " + TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished));
+                score = ((TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished) * scoreCoefficient) + (numOfElements * scoreCoefficient)) * 1000;
             }
 
             public void onFinish() {
@@ -162,11 +206,12 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
                 Toast.makeText(GameActivity.this, getString(R.string.loser_text), Toast.LENGTH_LONG).show();
 
                 mExplosionField.explode(textName);
-                mExplosionField.explode((TextView)findViewById(R.id.seconds_left_text));
+                mExplosionField.explode((TextView) findViewById(R.id.seconds_left_text));
 
-                TransitionManager.beginDelayedTransition(grid,makeExplodeTransition());
+                TransitionManager.beginDelayedTransition(grid, makeExplodeTransition());
                 toggleVisibility(buttons);
 
+                score = 0;
                 handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -181,6 +226,7 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
         Intent intent = new Intent(GameActivity.this, MenuActivity.class);
         intent.putExtra("name", name);
         intent.putExtra("age", age);
+        intent.putExtra("score", score);
         startActivity(intent);
     }
 
@@ -246,8 +292,12 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
             selectedButton1.setMatched(true);
             selectedButton1.setEnabled(false);
             button.setEnabled(false);
-            selectedButton1 = null;
 
+            //save last pair flipped
+            matchedPairs.push(selectedButton1);
+            matchedPairs.push(button);
+
+            selectedButton1 = null;
             pairedNum++;
             checkIfWon();
             return;
@@ -276,12 +326,11 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
                     Toast.LENGTH_LONG).show();
 
             mExplosionField.explode(textName);
-            mExplosionField.explode((TextView)findViewById(R.id.seconds_left_text));
-            mExplosionField.explode((TextView)findViewById(R.id.time_text));
+            mExplosionField.explode((TextView) findViewById(R.id.seconds_left_text));
+            mExplosionField.explode((TextView) findViewById(R.id.time_text));
 
-            TransitionManager.beginDelayedTransition(grid,makeFadeTransition());
+            TransitionManager.beginDelayedTransition(grid, makeFadeTransition());
             toggleVisibility(buttons);
-
 
             handler.postDelayed(new Runnable() {
                 @Override
@@ -299,14 +348,14 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    private Explode makeExplodeTransition(){
+    private Explode makeExplodeTransition() {
         Explode explode = new Explode();
         explode.setDuration(2000);
         explode.setInterpolator(new AnticipateOvershootInterpolator());
         return explode;
     }
 
-    private Fade makeFadeTransition(){
+    private Fade makeFadeTransition() {
         Fade fade = new Fade();
         fade.setDuration(2000);
         fade.setInterpolator(new AccelerateInterpolator());
@@ -314,12 +363,12 @@ public class GameActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     // Custom method to toggle visibility of views
-    private void toggleVisibility(View... views){
+    private void toggleVisibility(View... views) {
         // Loop through the views
-        for(View v: views){
-            if(v.getVisibility()==View.VISIBLE){
+        for (View v : views) {
+            if (v.getVisibility() == View.VISIBLE) {
                 v.setVisibility(View.INVISIBLE);
-            }else {
+            } else {
                 v.setVisibility(View.VISIBLE);
             }
         }

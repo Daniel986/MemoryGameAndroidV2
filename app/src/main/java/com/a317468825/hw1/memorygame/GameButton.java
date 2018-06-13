@@ -53,7 +53,6 @@ public class GameButton extends AppCompatButton {
 
     }
 
-
     public void setMatched(boolean matched) {
         isMatched = matched;
     }

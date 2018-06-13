@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     android:gravity="center"
     android:orientation="vertical"
+    android:screenOrientation="portrait"
     tools:context="com.a317468825.hw1.memorygame.MenuActivity">
 
     <TextView

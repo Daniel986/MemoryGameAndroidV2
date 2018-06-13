@@ -3,7 +3,6 @@ package com.a317468825.hw1.memorygame;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
-import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -16,6 +15,7 @@ public class MenuActivity extends FragmentActivity {
     private TextView textNameAge;
     private String name;
     private int age;
+    private float score;
 
 
     @Override
@@ -27,6 +27,11 @@ public class MenuActivity extends FragmentActivity {
         Bundle extrasBundle = this.getIntent().getExtras();
         name = extrasBundle.getString("name");
         age = extrasBundle.getInt("age");
+        score = extrasBundle.getFloat("score");
+
+        if(score != 0) {
+            // TODO : check if it's a high score
+        }
 
         textNameAge = (TextView) findViewById(R.id.text_name_age);
         textNameAge.setText("Hello " + name + "(" + age + ")");
