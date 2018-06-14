@@ -1,21 +1,44 @@
 package com.a317468825.hw1.memorygame;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.StreamCorruptedException;
+import java.util.ArrayList;
+import java.util.Collections;
+
+
 public class MenuActivity extends FragmentActivity {
 
+    private final static String FILE_NAME = "ScoreEntities";
     private Button btn_2x2;
     private Button btn_4x4;
     private Button btn_5x5;
+    private Button btn_table;
+    private Button btn_map;
     private TextView textNameAge;
     private String name;
     private int age;
     private float score;
+
+    private FragmentManager mFragmentManager;
+    private TableFragment tableFragment;
+
+    private ArrayList<ScoreEntity> scores;
 
 
     @Override
@@ -24,13 +47,48 @@ public class MenuActivity extends FragmentActivity {
         setContentView(R.layout.activity_menu);
 
 
+        // TODO : make new file for high scores, if one doesn't exist
+
+
         Bundle extrasBundle = this.getIntent().getExtras();
         name = extrasBundle.getString("name");
         age = extrasBundle.getInt("age");
         score = extrasBundle.getFloat("score");
 
+
+        mFragmentManager = getSupportFragmentManager();
+        tableFragment = new TableFragment();
+
+
+//        ////////////////////// mock data
+//        String[] names = {"a","b","c","d","e","f","g",           "h", "i", "j"};
+//        float[] mockScores = {6,22,699,1,5,124,8458,11,21,1349687};
+//        ScoreEntity[] temp = new ScoreEntity[names.length];
+//        for(int i = 0; i < names.length; i++) {
+//            temp[i] = new ScoreEntity(names[i], mockScores[i]);
+//        }
+//        writeToFile(temp);
+//        /////////////////////
+
+
+        // Take out data from internal storage and sort it by score
+        loadScores();
+
+        // check if it's a high score
         if(score != 0) {
-            // TODO : check if it's a high score
+            ScoreEntity tempScore;
+            if(scores.isEmpty()) {
+                tempScore = new ScoreEntity(name, score);
+                scores.add(tempScore);
+                writeToFile(scores);
+            } else if(score > scores.get(scores.size()-1).getScore()) {
+                tempScore = new ScoreEntity(name, score);
+                if (scores.size() == 10)
+                    scores.remove(scores.size() - 1);
+                scores.add(tempScore);
+                writeToFile(scores);
+                loadScores();
+            }
         }
 
         textNameAge = (TextView) findViewById(R.id.text_name_age);
@@ -60,6 +118,116 @@ public class MenuActivity extends FragmentActivity {
                 EnterGame(5, 5, 60);
             }
         });
+
+        btn_table = findViewById(R.id.btn_table);
+        btn_table.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                EnterTable();
+            }
+        });
+
+        btn_map = findViewById(R.id.btn_map);
+        btn_map.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                EnterMap();
+            }
+        });
+    }
+
+    private void loadScores() {
+        scores = new ArrayList<>();
+        scores.addAll(readFile());
+        if(scores != null)
+            Collections.sort(scores);
+    }
+
+    private ArrayList<ScoreEntity> readFile() {
+        FileInputStream fis;
+        Object obj = null;
+        boolean cont = true;
+        ArrayList<ScoreEntity> objects = new ArrayList<>();
+        try {
+            fis = this.openFileInput(FILE_NAME);
+            ObjectInputStream is = new ObjectInputStream(fis);
+            while(cont){
+                obj = is.readObject();
+                if(obj != null) {
+                    ScoreEntity temp = (ScoreEntity)obj;
+                    objects.add(temp);
+                } else {
+                    cont = false;
+                    is.close();
+                }
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (StreamCorruptedException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        return objects;
+    }
+
+    //for mock data
+    public void writeToFile(ScoreEntity[] objects) {
+        FileOutputStream fos;
+        File file;
+        try {
+            if(!new File(FILE_NAME).exists())
+             file = new File(this.getFilesDir(), FILE_NAME);
+            fos = this.openFileOutput(FILE_NAME, Context.MODE_PRIVATE);
+            ObjectOutputStream os = new ObjectOutputStream(fos);
+            for(int i = 0; i < objects.length; i++)
+                os.writeObject(objects[i]);
+            os.close();
+        }
+        catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void writeToFile(ArrayList<ScoreEntity> objects) {
+        FileOutputStream fos;
+        File file;
+        try {
+            if(!new File(FILE_NAME).exists())
+                file = new File(this.getFilesDir(), FILE_NAME);
+            fos = this.openFileOutput(FILE_NAME, Context.MODE_PRIVATE);
+            ObjectOutputStream os = new ObjectOutputStream(fos);
+            for(int i = 0; i < objects.size(); i++)
+                os.writeObject(objects.get(i));
+            os.close();
+        }
+        catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void EnterTable() {
+        // TODO : open table fragment
+        showFragment();
+        tableFragment = new TableFragment();
+        FragmentTransaction ft = mFragmentManager.beginTransaction();
+        ft.add(R.id.fragment_frame, tableFragment).addToBackStack("my_fragment");
+        ft.commit();
+        tableFragment.setScoreEntities(scores);
+    }
+
+    private void EnterMap() {
+        // TODO : open map fragment
+
     }
 
     private void EnterGame(int rows, int cols, int time) {
@@ -74,6 +242,28 @@ public class MenuActivity extends FragmentActivity {
 
     @Override
     public void onBackPressed() {
-        moveTaskToBack(true);
+        if (mFragmentManager.getBackStackEntryCount() > 0) {
+            hideFragment();
+            mFragmentManager.popBackStack();
+        } else {
+            moveTaskToBack(true);
+        }
     }
+
+    private void hideFragment() {
+        findViewById(R.id.fragment_frame).setVisibility(View.GONE);
+        findViewById(R.id.menu_header).setVisibility(View.VISIBLE);
+        btn_2x2.setVisibility(View.VISIBLE);
+        btn_4x4.setVisibility(View.VISIBLE);
+        btn_5x5.setVisibility(View.VISIBLE);
+    }
+
+    private void showFragment() {
+        findViewById(R.id.fragment_frame).setVisibility(View.VISIBLE);
+        findViewById(R.id.menu_header).setVisibility(View.GONE);
+        btn_2x2.setVisibility(View.GONE);
+        btn_4x4.setVisibility(View.GONE);
+        btn_5x5.setVisibility(View.GONE);
+    }
+
 }
