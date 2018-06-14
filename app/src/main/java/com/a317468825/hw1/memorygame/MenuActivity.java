@@ -37,6 +37,7 @@ public class MenuActivity extends FragmentActivity {
 
     private FragmentManager mFragmentManager;
     private TableFragment tableFragment;
+    private MapFragment mapFragment;
 
     private ArrayList<ScoreEntity> scores;
 
@@ -57,7 +58,6 @@ public class MenuActivity extends FragmentActivity {
 
 
         mFragmentManager = getSupportFragmentManager();
-        tableFragment = new TableFragment();
 
 
 //        ////////////////////// mock data
@@ -227,7 +227,12 @@ public class MenuActivity extends FragmentActivity {
 
     private void EnterMap() {
         // TODO : open map fragment
-
+        showFragment();
+        mapFragment = new MapFragment();
+        FragmentTransaction ft = mFragmentManager.beginTransaction();
+        ft.add(R.id.fragment_frame, mapFragment).addToBackStack("my_fragment");
+        ft.commit();
+        //mapFragment.setScoreEntities(scores);
     }
 
     private void EnterGame(int rows, int cols, int time) {
