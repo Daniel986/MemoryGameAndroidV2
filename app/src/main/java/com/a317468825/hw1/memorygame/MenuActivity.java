@@ -10,6 +10,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -37,7 +38,6 @@ public class MenuActivity extends FragmentActivity {
 
     private FragmentManager mFragmentManager;
     private TableFragment tableFragment;
-    private MapFragment mapFragment;
 
     private ArrayList<ScoreEntity> scores;
 
@@ -59,19 +59,6 @@ public class MenuActivity extends FragmentActivity {
 
         mFragmentManager = getSupportFragmentManager();
 
-
-//        ////////////////////// mock data
-//        String[] names = {"a","b","c","d","e","f","g",           "h", "i", "j"};
-//        float[] mockScores = {6,22,699,1,5,124,8458,11,21,1349687};
-//        ScoreEntity[] temp = new ScoreEntity[names.length];
-//        for(int i = 0; i < names.length; i++) {
-//            temp[i] = new ScoreEntity(names[i], mockScores[i]);
-//        }
-//        writeToFile(temp);
-//        /////////////////////
-
-
-        // Take out data from internal storage and sort it by score
         loadScores();
 
         // check if it's a high score
@@ -217,6 +204,9 @@ public class MenuActivity extends FragmentActivity {
 
     private void EnterTable() {
         // TODO : open table fragment
+        if (mFragmentManager.getBackStackEntryCount() > 0) { // don't let it open two fragments simultaneously
+            mFragmentManager.popBackStack();
+        }
         showFragment();
         tableFragment = new TableFragment();
         FragmentTransaction ft = mFragmentManager.beginTransaction();
@@ -227,12 +217,10 @@ public class MenuActivity extends FragmentActivity {
 
     private void EnterMap() {
         // TODO : open map fragment
-        showFragment();
-        mapFragment = new MapFragment();
-        FragmentTransaction ft = mFragmentManager.beginTransaction();
-        ft.add(R.id.fragment_frame, mapFragment).addToBackStack("my_fragment");
-        ft.commit();
-        //mapFragment.setScoreEntities(scores);
+        Intent intent = new Intent(MenuActivity.this, MapsActivity.class);
+        intent.putExtra("scores", scores);
+        startActivity(intent);
+
     }
 
     private void EnterGame(int rows, int cols, int time) {

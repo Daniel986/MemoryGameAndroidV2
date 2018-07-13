@@ -1,19 +1,19 @@
 package com.a317468825.hw1.memorygame;
 
-import android.location.Location;
-
 import java.io.Serializable;
 
 public class ScoreEntity implements Comparable<ScoreEntity>, Serializable{
 
     private String name;
     private float score;
-    private Location location;
+    private double lat;
+    private double lng;
 
-    public ScoreEntity(String name, float score, Location location) {
+    public ScoreEntity(String name, float score, double lat, double lng) {
         this.name = name;
         this.score = score;
-        this.location = location;
+        this.lat = lat;
+        this.lng = lng;
     }
 
     public ScoreEntity(String name, float score) {
@@ -37,12 +37,20 @@ public class ScoreEntity implements Comparable<ScoreEntity>, Serializable{
         this.score = score;
     }
 
-    public Location getLocation() {
-        return location;
+    public double getLat() {
+        return lat;
     }
 
-    public void setLocation(Location location) {
-        this.location = location;
+    public void setLat(double lat) {
+        this.lat = lat;
+    }
+
+    public double getLng() {
+        return lng;
+    }
+
+    public void setLng(double lng) {
+        this.lng = lng;
     }
 
     @Override
@@ -50,7 +58,8 @@ public class ScoreEntity implements Comparable<ScoreEntity>, Serializable{
         return "ScoreEntity{" +
                 "name='" + name + '\'' +
                 ", score=" + score +
-                ", location=" + location +
+                ", latitude=" + lat +
+                ", longitude=" + lng +
                 '}';
     }
 
